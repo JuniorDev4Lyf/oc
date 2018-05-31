@@ -1,29 +1,23 @@
 'use strict';
 
-var _ = require('underscore');
+const _ = require('lodash');
 
-module.exports = function(options){
-
-  var eventData = {
+module.exports = function(options) {
+  let eventData = {
     headers: options.headers,
     name: options.name,
     parameters: options.parameters,
     requestVersion: options.version || ''
   };
-    
-  var start = process.hrtime();
+
+  const start = process.hrtime();
 
   return {
-    extend: function(obj){
-      eventData = _.extend(eventData, obj);
-    },
-    getData: function(){
-
-      var delta = process.hrtime(start),
-          nanosec = delta[0] * 1e9 + delta[1];
-
+    extend: obj => (eventData = _.extend(eventData, obj)),
+    getData: () => {
+      const delta = process.hrtime(start);
+      const nanosec = delta[0] * 1e9 + delta[1];
       eventData.duration = nanosec / 1e3;
-
       return eventData;
     }
   };

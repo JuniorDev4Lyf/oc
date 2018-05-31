@@ -1,24 +1,23 @@
 'use strict';
 
-var _ = require('underscore');
+const _ = require('lodash');
 
-var strings = require('../../../resources');
+const strings = require('../../../resources');
 
-module.exports = function(pkgDetails){
-
-  if(pkgDetails.packageJson.name !== pkgDetails.componentName){
+module.exports = function(pkgDetails) {
+  if (pkgDetails.packageJson.name !== pkgDetails.componentName) {
     return {
       isValid: false,
       error: strings.errors.registry.COMPONENT_PUBLISHNAME_CONFLICT
     };
   }
 
-  var result = pkgDetails.customValidator(pkgDetails.packageJson);
-  
-  if(_.isBoolean(result)){
+  let result = pkgDetails.customValidator(pkgDetails.packageJson);
+
+  if (_.isBoolean(result)) {
     result = { isValid: result };
 
-    if(!result.isValid){
+    if (!result.isValid) {
       result.error = 'unknown';
     }
   }

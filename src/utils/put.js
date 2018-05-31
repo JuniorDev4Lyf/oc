@@ -1,52 +1,50 @@
 'use strict';
 
-var FormData = require('form-data');
-var fs = require('fs-extra');
-var path = require('path');
-var url = require('url');
-var _ = require('underscore');
+const FormData = require('form-data');
+const fs = require('fs-extra');
+const path = require('path');
+const url = require('url');
+const _ = require('lodash');
 
 module.exports = function(urlPath, files, headers, callback) {
-
-  if(_.isFunction(headers)){
+  if (_.isFunction(headers)) {
     callback = headers;
     headers = {};
   }
 
-  var form = new FormData(),
-      body = '',
-      callbackDone = false,
-      options = _.extend(url.parse(urlPath), { method: 'PUT' });
+  const form = new FormData(),
+    options = _.extend(url.parse(urlPath), { method: 'PUT' });
+  let body = '',
+    callbackDone = false;
 
-  if(!_.isArray(files)){
+  if (!_.isArray(files)) {
     files = [files];
   }
 
-  _.forEach(files, function(file){
-    var fileName = path.basename(file);
+  _.forEach(files, file => {
+    const fileName = path.basename(file);
     form.append(fileName, fs.createReadStream(file));
   });
 
   options.headers = _.extend(headers, form.getHeaders());
 
-  form.submit(options, function(err, res){
-
-    if(!!err){
+  form.submit(options, (err, res) => {
+    if (err) {
       callbackDone = true;
       return callback(err);
     }
 
-    res.on('data', function(chunk){
+    res.on('data', chunk => {
       body += chunk;
     });
 
-    res.on('end', function(){
-      if(!callbackDone){
+    res.on('end', () => {
+      if (!callbackDone) {
         callbackDone = true;
 
-        if(res.statusCode !== 200){
+        if (res.statusCode !== 200) {
           callback(body);
-        } else { 
+        } else {
           callback(null, body);
         }
       }

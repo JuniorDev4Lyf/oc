@@ -1,73 +1,78 @@
 'use strict';
 
-var expect = require('chai').expect;
-var injectr = require('injectr');
-var sinon = require('sinon');
+const expect = require('chai').expect;
+const injectr = require('injectr');
+const sinon = require('sinon');
 
-var getRegistry = function(dependencies, opts){
+const getRegistry = function(dependencies, opts) {
   dependencies.fs = dependencies.fs || {};
   dependencies.fs.readJsonSync = sinon.stub().returns({ version: '1.2.3' });
-  var Registry = injectr('../../src/cli/domain/registry.js', {
-        'minimal-request': dependencies.request,
-        'fs-extra': dependencies.fs,
-        '../../utils/put': dependencies.put,
-        '../domain/url-parser': dependencies.urlParser,
-        path: {
-          join: sinon.stub().returns('/hello/world')
-        }
-      }, { 
-        Buffer: Buffer, 
-        __dirname: '/hello',
-        process: {
-          arch: 'x64',
-          platform: 'darwin',
-          version: 'v0.10.35'
-        }
-      });
+  const Registry = injectr(
+    '../../src/cli/domain/registry.js',
+    {
+      'minimal-request': dependencies.request,
+      'fs-extra': dependencies.fs,
+      '../../utils/put': dependencies.put,
+      '../domain/url-parser': dependencies.urlParser,
+      path: {
+        join: sinon.stub().returns('/hello/world')
+      }
+    },
+    {
+      Buffer: Buffer,
+      __dirname: '/hello',
+      process: {
+        arch: 'x64',
+        platform: 'darwin',
+        version: 'v0.10.35'
+      }
+    }
+  );
 
   return new Registry(opts);
 };
 
-describe('cli : domain : registry', function(){
+describe('cli : domain : registry', () => {
+  describe('registry specified at runtime', () => {
+    it('should use the registry specified', () => {
+      const registry = getRegistry(
+        {},
+        { registry: 'http://myotherregistry.com' }
+      );
 
-  describe('registry specified at runtime', function(){
-
-    it('should use the registry specified', function(){
-      var registry = getRegistry({}, { registry: 'http://myotherregistry.com'});
-
-      registry.get(function(err, registries){
+      registry.get((err, registries) => {
         expect(registries[0]).to.eql('http://myotherregistry.com');
       });
     });
   });
 
-  describe('when adding registry', function(){
-
-    describe('when registry does not end with "/"', function(){
-
-      it('should append the slash when doing the request', function(done){
-        var requestStub = sinon.stub();
+  describe('when adding registry', () => {
+    describe('when registry does not end with "/"', () => {
+      it('should append the slash when doing the request', done => {
+        const requestStub = sinon.stub();
         requestStub.yields('err');
-        var registry = getRegistry({ request: requestStub });
+        const registry = getRegistry({ request: requestStub });
 
-        registry.add('http://some-api.com/asd', function(){
-          expect(requestStub.getCall(0).args[0].url).to.eql('http://some-api.com/asd/');
+        registry.add('http://some-api.com/asd', () => {
+          expect(requestStub.getCall(0).args[0].url).to.eql(
+            'http://some-api.com/asd/'
+          );
           done();
         });
       });
 
-      it('should save the file with slashed url', function(){
-        var requestStub = sinon.stub(),
-            fsStub = {
-              readJson: sinon.stub(),
-              writeJson: sinon.spy()
-            };
+      it('should save the file with slashed url', () => {
+        const requestStub = sinon.stub(),
+          fsStub = {
+            readJson: sinon.stub(),
+            writeJson: sinon.spy()
+          };
 
         requestStub.yields(null, { type: 'oc-registry' });
 
         fsStub.readJson.yields(null, {});
 
-        var registry = getRegistry({ request: requestStub, fs: fsStub });
+        const registry = getRegistry({ request: requestStub, fs: fsStub });
 
         registry.add('http://some-api.com/asd');
 
@@ -78,183 +83,232 @@ describe('cli : domain : registry', function(){
     });
   });
 
-  describe('when publishing to registry', function(){
-
-    describe('when no credentials used', function(){
-
-      var args, putSpy;
-      beforeEach(function(){
+  describe('when publishing to registry', () => {
+    describe('when no credentials used', () => {
+      let args, putSpy;
+      beforeEach(() => {
         putSpy = sinon.spy();
-        var registry = getRegistry({ put: putSpy });
-        registry.putComponent({ route: 'http://registry.com/component/1.0.0', path: '/blabla/path' }, function(){});
+        const registry = getRegistry({ put: putSpy });
+        registry.putComponent(
+          {
+            route: 'http://registry.com/component/1.0.0',
+            path: '/blabla/path'
+          },
+          () => {}
+        );
         args = putSpy.args[0];
       });
 
-      it('should do the request without authorization header', function(){
+      it('should do the request without authorization header', () => {
         expect(putSpy.called).to.be.true;
         expect(args[0]).to.eql('http://registry.com/component/1.0.0');
         expect(args[1]).to.eql('/blabla/path');
         expect(!!args[2]['Authorization']).to.be.false;
       });
 
-      it('should do the request with user-agent including cli version and node details', function(){
-        expect(args[2]['user-agent']).to.equal('oc-cli-1.2.3/v0.10.35-darwin-x64');
+      it('should do the request with user-agent including cli version and node details', () => {
+        expect(args[2]['user-agent']).to.equal(
+          'oc-cli-1.2.3/v0.10.35-darwin-x64'
+        );
       });
     });
 
-    describe('when credentials used', function(){
-
-      var args, putSpy;
-      beforeEach(function(){
+    describe('when credentials used', () => {
+      let args, putSpy;
+      beforeEach(() => {
         putSpy = sinon.spy();
-        var registry = getRegistry({ put: putSpy });
-        registry.putComponent({
-          route: 'http://registry.com/component/1.0.0',
-          path: '/blabla/path',
-          username: 'johndoe',
-          password: 'aPassw0rd'
-        }, function(){});
+        const registry = getRegistry({ put: putSpy });
+        registry.putComponent(
+          {
+            route: 'http://registry.com/component/1.0.0',
+            path: '/blabla/path',
+            username: 'johndoe',
+            password: 'aPassw0rd'
+          },
+          () => {}
+        );
         args = putSpy.args[0];
       });
 
-      it('should do the request with authorization header', function(){
+      it('should do the request with authorization header', () => {
         expect(putSpy.called).to.be.true;
         expect(args[0]).to.eql('http://registry.com/component/1.0.0');
         expect(args[1]).to.eql('/blabla/path');
-        expect(args[2]['Authorization']).to.eql('Basic am9obmRvZTphUGFzc3cwcmQ=');
+        expect(args[2]['Authorization']).to.eql(
+          'Basic am9obmRvZTphUGFzc3cwcmQ='
+        );
       });
 
-      it('should do the request with user-agent including cli version and node details', function(){
-        expect(args[2]['user-agent']).to.equal('oc-cli-1.2.3/v0.10.35-darwin-x64');
+      it('should do the request with user-agent including cli version and node details', () => {
+        expect(args[2]['user-agent']).to.equal(
+          'oc-cli-1.2.3/v0.10.35-darwin-x64'
+        );
       });
     });
   });
 
-  describe('when getting preview url', function(){
-
-    var err, res;
-    var execute = function(href, error, parsed, done){
-      var registry = getRegistry({ 
+  describe('when getting preview url', () => {
+    let err, res;
+    const execute = function(href, error, parsed, done) {
+      const registry = getRegistry({
         request: sinon.stub().yields(error, parsed),
         urlParser: {
           parse: sinon.stub().returns(parsed)
         }
-      });        
-      registry.getComponentPreviewUrlByUrl(href, function(e, r){
+      });
+      registry.getComponentPreviewUrlByUrl(href, (e, r) => {
         err = e;
         res = r;
         done();
       });
     };
 
-    describe('when href not valid', function(){
-      beforeEach(function(done){
-        execute('http://registry.com/not-existing-component', '404!!!', {}, done);
+    describe('when href not valid', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/not-existing-component',
+          '404!!!',
+          {},
+          done
+        );
       });
 
-      it('should show error message', function(){
+      it('should show error message', () => {
         expect(err).to.equal('404!!!');
       });
     });
 
-    describe('when href = /component', function(){
-      beforeEach(function(done){
-        execute('http://registry.com/component', null, {
-          href: 'http://registry.com/component',
-          registryUrl: 'http://registry.com/',
-          name: 'component',
-          version: '',
-          parameters: {}
-        }, done);
+    describe('when href = /component', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/component',
+          null,
+          {
+            href: 'http://registry.com/component',
+            registryUrl: 'http://registry.com/',
+            name: 'component',
+            version: '',
+            parameters: {}
+          },
+          done
+        );
       });
 
-      it('href should be /component/~preview/', function(){
+      it('href should be /component/~preview/', () => {
         expect(res).to.equal('http://registry.com/component/~preview/');
       });
     });
 
-    describe('when href = /component/1.X.X', function(){
-
-      beforeEach(function(done){
-        execute('http://registry.com/component/1.X.X', null, {
-          href: 'http://registry.com/component/1.X.X',
-          registryUrl: 'http://registry.com/',
-          name: 'component',
-          version: '1.X.X',
-          parameters: {}
-        }, done);
+    describe('when href = /component/1.X.X', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/component/1.X.X',
+          null,
+          {
+            href: 'http://registry.com/component/1.X.X',
+            registryUrl: 'http://registry.com/',
+            name: 'component',
+            version: '1.X.X',
+            parameters: {}
+          },
+          done
+        );
       });
 
-      it('href should be /component/1.X.X/~preview/', function(){
+      it('href should be /component/1.X.X/~preview/', () => {
         expect(res).to.equal('http://registry.com/component/1.X.X/~preview/');
       });
     });
 
-    describe('when href = /component?hello=world', function(){
-
-      beforeEach(function(done){
-        execute('http://registry.com/component?hello=world', null, {
-          href: 'http://registry.com/component?hello=world',
-          registryUrl: 'http://registry.com/',
-          name: 'component',
-          version: '',
-          parameters: {hello: 'world'}
-        }, done);
+    describe('when href = /component?hello=world', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/component?hello=world',
+          null,
+          {
+            href: 'http://registry.com/component?hello=world',
+            registryUrl: 'http://registry.com/',
+            name: 'component',
+            version: '',
+            parameters: { hello: 'world' }
+          },
+          done
+        );
       });
 
-      it('href should be /component/~preview/?hello=world', function(){
-        expect(res).to.equal('http://registry.com/component/~preview/?hello=world');
-      });
-    });
-
-    describe('when href = /component/?hello=world', function(){
-
-      beforeEach(function(done){
-        execute('http://registry.com/component/?hello=world', null, {
-          href: 'http://registry.com/component/?hello=world',
-          registryUrl: 'http://registry.com/',
-          name: 'component',
-          version: '',
-          parameters: {hello: 'world'}
-        }, done);
-      });
-
-      it('href should be /component/~preview/?hello=world', function(){
-        expect(res).to.equal('http://registry.com/component/~preview/?hello=world');
+      it('href should be /component/~preview/?hello=world', () => {
+        expect(res).to.equal(
+          'http://registry.com/component/~preview/?hello=world'
+        );
       });
     });
 
-    describe('when href = /component/1.X.X?hello=world', function(){
-
-      beforeEach(function(done){
-        execute('http://registry.com/component/1.X.X?hello=world', null, {
-          href: 'http://registry.com/component/1.X.X?hello=world',
-          registryUrl: 'http://registry.com/',
-          name: 'component',
-          version: '1.X.X',
-          parameters: {hello: 'world'}
-        }, done);
+    describe('when href = /component/?hello=world', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/component/?hello=world',
+          null,
+          {
+            href: 'http://registry.com/component/?hello=world',
+            registryUrl: 'http://registry.com/',
+            name: 'component',
+            version: '',
+            parameters: { hello: 'world' }
+          },
+          done
+        );
       });
 
-      it('href should be /component/1.X.X/~preview/?hello=world', function(){
-        expect(res).to.equal('http://registry.com/component/1.X.X/~preview/?hello=world');
+      it('href should be /component/~preview/?hello=world', () => {
+        expect(res).to.equal(
+          'http://registry.com/component/~preview/?hello=world'
+        );
       });
     });
 
-    describe('when href = /component/1.X.X/?hello=world', function(){
-
-      beforeEach(function(done){
-        execute('http://registry.com/component/1.X.X/?hello=world', null, {
-          href: 'http://registry.com/component/1.X.X/?hello=world',
-          registryUrl: 'http://registry.com/',
-          name: 'component',
-          version: '1.X.X',
-          parameters: {hello: 'world'}
-        }, done);
+    describe('when href = /component/1.X.X?hello=world', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/component/1.X.X?hello=world',
+          null,
+          {
+            href: 'http://registry.com/component/1.X.X?hello=world',
+            registryUrl: 'http://registry.com/',
+            name: 'component',
+            version: '1.X.X',
+            parameters: { hello: 'world' }
+          },
+          done
+        );
       });
 
-      it('href should be /component/1.X.X/~preview/?hello=world', function(){
-        expect(res).to.equal('http://registry.com/component/1.X.X/~preview/?hello=world');
+      it('href should be /component/1.X.X/~preview/?hello=world', () => {
+        expect(res).to.equal(
+          'http://registry.com/component/1.X.X/~preview/?hello=world'
+        );
+      });
+    });
+
+    describe('when href = /component/1.X.X/?hello=world', () => {
+      beforeEach(done => {
+        execute(
+          'http://registry.com/component/1.X.X/?hello=world',
+          null,
+          {
+            href: 'http://registry.com/component/1.X.X/?hello=world',
+            registryUrl: 'http://registry.com/',
+            name: 'component',
+            version: '1.X.X',
+            parameters: { hello: 'world' }
+          },
+          done
+        );
+      });
+
+      it('href should be /component/1.X.X/~preview/?hello=world', () => {
+        expect(res).to.equal(
+          'http://registry.com/component/1.X.X/~preview/?hello=world'
+        );
       });
     });
   });

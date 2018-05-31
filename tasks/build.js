@@ -1,51 +1,57 @@
 'use strict';
 
-var format = require('stringformat');
-var fs = require('fs-extra');
-var path = require('path');
-var uglifyJs = require('uglify-js');
+const fs = require('fs-extra');
+const ocClientBrowser = require('oc-client-browser');
+const log = require('./logger');
+const path = require('path');
+const packageJson = require('../package');
 
-var packageJson = require('../package');
+const ocVersion = packageJson.version;
+const clientComponentDir = '../src/components/oc-client/';
+const ocClientPackageInfo = require(`${clientComponentDir}package.json`);
 
-module.exports = function(grunt){
+log['start']('Building client');
 
-  grunt.registerTask('build', 'Builds and minifies the oc-client component', function(){
+fs.emptyDirSync(path.join(__dirname, clientComponentDir, 'src'));
 
-    var done = this.async(),
-        version = packageJson.version,
-        clientComponentDir = '../src/components/oc-client/',
-        licenseRow = '/*! OpenComponents client v{0} | (c) 2015-{1} OpenTable, Inc. | {2} */',
-        licenseLink = 'https://github.com/opentable/oc/tree/master/src/components/oc-client/LICENSES',
-        license = format(licenseRow, version, new Date().getFullYear(), licenseLink),
-        headLoad = fs.readFileSync(path.join(__dirname, clientComponentDir, 'src/head.load.js')).toString(),
-        ocClient = fs.readFileSync(path.join(__dirname, clientComponentDir, 'src/oc-client.js')).toString(),
-        bundle = format('{0}\n;\n{1}\n;\noc.clientVersion=\'{2}\';', headLoad, ocClient, version),
-        ocClientPackageInfo = require(clientComponentDir + 'package.json'),
-        shrinkwrap = require('../npm-shrinkwrap'),
-        jsonConfig = {spaces: 2};
+ocClientBrowser.getLib((err, libContent) => {
+  if (err) {
+    log['error'](err);
+  }
 
-    ocClientPackageInfo.version = version;
-    shrinkwrap.version = version;
-    fs.writeJsonSync(path.join(__dirname, clientComponentDir, 'package.json'), ocClientPackageInfo, jsonConfig);
-    fs.writeJsonSync(path.join(__dirname, '../npm-shrinkwrap.json'), shrinkwrap, jsonConfig);
+  ocClientPackageInfo.version = ocVersion;
+  fs.writeJsonSync(
+    path.join(__dirname, clientComponentDir, 'package.json'),
+    ocClientPackageInfo,
+    { spaces: 2 }
+  );
 
-    var compressed = uglifyJs.minify(bundle, {
-      fromString: true,
-      outSourceMap: 'oc-client.min.map'
-    });
+  fs.writeFileSync(
+    path.join(__dirname, clientComponentDir, 'src/oc-client.min.js'),
+    libContent
+  );
 
-    var compressedCode = format('{0}\n{1}', license, compressed.code);
+  ocClientBrowser.getMap((err, mapContent) => {
+    if (err) {
+      log['error'](err);
+    }
+    fs.writeFileSync(
+      path.join(__dirname, clientComponentDir, 'src/oc-client.min.map'),
+      mapContent
+    );
 
-    fs.writeFileSync(path.join(__dirname, clientComponentDir, 'src/oc-client.min.js'), compressedCode);
-    fs.writeFileSync(path.join(__dirname, clientComponentDir, 'src/oc-client.min.map'), compressed.map);
-    fs.writeFileSync(path.join(__dirname, '../client/src/oc-client.min.js'), compressedCode);
+    const Local = require('../src/cli/domain/local');
+    const local = new Local();
+    const packageOptions = {
+      componentPath: path.join(__dirname, clientComponentDir),
+      production: true,
+      verbose: false
+    };
 
-    var Local = require('../src/cli/domain/local'),
-        local = new Local({ logger: { log: grunt.log.writeln }});
-
-    local.package(path.join(__dirname, clientComponentDir), function(err, res){
-      grunt.log[!!err ? 'error' : 'ok'](!!err ? err : 'Client has been built and packaged');
-      done();
+    local.package(packageOptions, err => {
+      log[err ? 'error' : 'complete'](
+        err ? err : 'Client has been built and packaged'
+      );
     });
   });
-};
+});

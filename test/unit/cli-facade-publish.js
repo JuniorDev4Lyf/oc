@@ -1,179 +1,212 @@
 'use strict';
 
-var colors = require('colors/safe');
-var expect = require('chai').expect;
-var injectr = require('injectr');
-var path = require('path');
-var sinon = require('sinon');
-var _ = require('underscore');
+const colors = require('colors/safe');
+const expect = require('chai').expect;
+const injectr = require('injectr');
+const path = require('path');
+const sinon = require('sinon');
 
-describe('cli : facade : publish', function(){
-
-  var logSpy = {},
-      Registry = require('../../src/cli/domain/registry'),
-      registry = new Registry(),
-      Local = require('../../src/cli/domain/local'),
-      local = new Local({ logger: { log: function(){} } }),
-      readStub = sinon.stub().yields(null, 'test'),
-      PublishFacade = injectr('../../src/cli/facade/publish.js', { read: readStub }),
-      publishFacade = new PublishFacade({ registry: registry, local: local, logger: logSpy });
-
-  var execute = function(cb, creds){
-    creds = creds || {};
-    logSpy.log = sinon.stub();
-    publishFacade({
-      componentPath: 'test/fixtures/components/hello-world/',
-      username: creds.username,
-      password: creds.password
-    }, function(){
-      cb();
+describe('cli : facade : publish', () => {
+  const logSpy = {},
+    Registry = require('../../src/cli/domain/registry'),
+    registry = new Registry(),
+    Local = require('../../src/cli/domain/local'),
+    local = new Local(),
+    readStub = sinon.stub().yields(null, 'test'),
+    PublishFacade = injectr('../../src/cli/facade/publish.js', {
+      read: readStub
+    }),
+    publishFacade = new PublishFacade({
+      registry,
+      local,
+      logger: logSpy
     });
+
+  const execute = function(cb, creds) {
+    creds = creds || {};
+    logSpy.err = sinon.stub();
+    logSpy.log = sinon.stub();
+    logSpy.ok = sinon.stub();
+    logSpy.warn = sinon.stub();
+    publishFacade(
+      {
+        componentPath: 'test/fixtures/components/hello-world/',
+        username: creds.username,
+        password: creds.password
+      },
+      () => {
+        cb();
+      }
+    );
   };
 
-  describe('when publishing component', function(){
-
-    describe('when api is not valid', function(){
-
-      beforeEach(function(done){
+  describe('when publishing component', () => {
+    describe('when api is not valid', () => {
+      beforeEach(done => {
         sinon.stub(registry, 'get').yields('an error!');
         execute(done);
       });
 
-      afterEach(function(){
+      afterEach(() => {
         registry.get.restore();
       });
 
-      it('should show an error', function(){
-        expect(logSpy.log.args[0][0]).to.equal(colors.red('an error!'));
+      it('should show an error', () => {
+        expect(logSpy.err.args[0][0]).to.equal('an error!');
       });
     });
 
-    describe('when api is valid', function(){
-
-      beforeEach(function(){
-        sinon.stub(registry, 'get').yields(null, ['http://www.api.com', 'http://www.api2.com']);
+    describe('when api is valid', () => {
+      beforeEach(() => {
+        sinon
+          .stub(registry, 'get')
+          .yields(null, ['http://www.api.com', 'http://www.api2.com']);
       });
 
-      afterEach(function(){
+      afterEach(() => {
         registry.get.restore();
       });
 
-      it('should show a message', function(done){
+      it('should show a message', done => {
         sinon.stub(local, 'package').yields('the component is not valid');
-        execute(function(){
+        execute(() => {
           local.package.restore();
+          const message = logSpy.warn.args[1][0],
+            re = new RegExp('\\' + path.sep, 'g'),
+            messageWithSlashesOnPath = message.replace(re, '/');
 
-          var message = logSpy.log.args[0][0],
-              re = new RegExp('\\' + path.sep, 'g'),
-              messageWithSlashesOnPath = message.replace(re, '/');
-
+          expect(logSpy.warn.args[0][0]).to.equal(
+            'Ensuring dependencies are loaded...'
+          );
           expect(messageWithSlashesOnPath).to.include('Packaging -> ');
-          expect(messageWithSlashesOnPath).to.include('components/hello-world/_package');
+          expect(messageWithSlashesOnPath).to.include(
+            'components/hello-world/_package'
+          );
           done();
         });
       });
 
-      describe('when packaging', function(){
-
-        describe('when a component is not valid', function(){
-
-          beforeEach(function(done){
+      describe('when packaging', () => {
+        describe('when a component is not valid', () => {
+          beforeEach(done => {
             sinon.stub(local, 'package').yields('the component is not valid');
             execute(done);
           });
 
-          afterEach(function(){
+          afterEach(() => {
             local.package.restore();
           });
 
-          it('should show an error', function(){
-            expect(logSpy.log.args[1][0]).to.equal(colors.red('An error happened when creating the package: the component is not valid'));
+          it('should show an error', () => {
+            expect(logSpy.err.args[0][0]).to.equal(
+              'An error happened when creating the package: the component is not valid'
+            );
           });
         });
 
-        describe('when a component is valid', function(){
-
-          beforeEach(function(){
+        describe('when a component is valid', () => {
+          beforeEach(() => {
             sinon.stub(local, 'package').yields(null, {
               name: 'hello-world',
               version: '1.0.0'
             });
           });
 
-          afterEach(function(){
+          afterEach(() => {
             local.package.restore();
           });
 
-          describe('when creating tar.gz archive', function(){
-
-            beforeEach(function(){
+          describe('when creating tar.gz archive', () => {
+            beforeEach(() => {
               sinon.stub(local, 'compress').yields(null);
             });
 
-            afterEach(function(){
+            afterEach(() => {
               local.compress.restore();
             });
 
-            it('should show a message', function(done){
+            it('should show a message', done => {
               sinon.stub(registry, 'putComponent').yields('blabla');
-              execute(function(){
+              execute(() => {
                 registry.putComponent.restore();
-
-                var message = logSpy.log.args[1][0],
-                    re = new RegExp('\\' + path.sep, 'g'),
-                    messageWithSlashesOnPath = message.replace(re, '/');
+                const message = logSpy.warn.args[2][0],
+                  re = new RegExp('\\' + path.sep, 'g'),
+                  messageWithSlashesOnPath = message.replace(re, '/');
 
                 expect(messageWithSlashesOnPath).to.include('Compressing -> ');
-                expect(messageWithSlashesOnPath).to.include('components/hello-world/package.tar.gz');
+                expect(messageWithSlashesOnPath).to.include(
+                  'components/hello-world/package.tar.gz'
+                );
                 done();
               });
             });
 
-            describe('when publishing', function(){
-
-              it('should show a message', function(done){
+            describe('when publishing', () => {
+              it('should show a message', done => {
                 sinon.stub(registry, 'putComponent').yields('blabla');
-                execute(function(){
+                execute(() => {
                   registry.putComponent.restore();
 
-                  expect(logSpy.log.args[2][0]).to.include('Publishing -> ');
+                  expect(logSpy.warn.args[3][0]).to.include('Publishing -> ');
                   done();
                 });
               });
 
-              it('should publish to all registries', function(done){
+              it('should publish to all registries', done => {
                 sinon.stub(registry, 'putComponent').yields(null, 'ok');
-                execute(function(){
+                execute(() => {
                   registry.putComponent.restore();
 
-                  expect(logSpy.log.args[2][0]).to.include('http://www.api.com');
-                  expect(logSpy.log.args[4][0]).to.include('http://www.api2.com');
+                  expect(logSpy.ok.args[0][0]).to.include('http://www.api.com');
+                  expect(logSpy.ok.args[1][0]).to.include(
+                    'http://www.api2.com'
+                  );
                   done();
                 });
               });
 
-              describe('when a generic error happens', function(){
-
-                beforeEach(function(done){
+              describe('when a generic error happens', () => {
+                beforeEach(done => {
                   sinon.stub(registry, 'putComponent').yields('nope!');
                   execute(done);
                 });
 
-                afterEach(function(){
+                afterEach(() => {
                   registry.putComponent.restore();
                 });
 
-                it('should show an error', function(){
-                  expect(logSpy.log.args[3][0]).to.include('An error happened when publishing the component: nope!');
+                it('should show an error', () => {
+                  expect(logSpy.err.args[0][0]).to.include(
+                    'An error happened when publishing the component: nope!'
+                  );
                 });
               });
 
-              describe('when using an old cli', function(){
+              describe('when a generic error happens from the api', () => {
+                beforeEach(done => {
+                  sinon
+                    .stub(registry, 'putComponent')
+                    .yields({ IgotAnError: true });
+                  execute(done);
+                });
 
-                beforeEach(function(done){
+                afterEach(() => {
+                  registry.putComponent.restore();
+                });
+
+                it('should show an error', () => {
+                  expect(logSpy.err.args[0][0]).to.include(
+                    'An error happened when publishing the component: {"IgotAnError":true}'
+                  );
+                });
+              });
+
+              describe('when using an old cli', () => {
+                beforeEach(done => {
                   sinon.stub(registry, 'putComponent').yields({
                     code: 'cli_version_not_valid',
-                    error: 'OC CLI version is not valid: Registry 1.23.4, CLI 0.1.2',
+                    error:
+                      'OC CLI version is not valid: Registry 1.23.4, CLI 0.1.2',
                     details: {
                       code: 'old_version',
                       cliVersion: '0.1.2',
@@ -184,22 +217,25 @@ describe('cli : facade : publish', function(){
                   execute(done);
                 });
 
-                afterEach(function(){
+                afterEach(() => {
                   registry.putComponent.restore();
                 });
 
-                it('should show an error', function(){
-                  expect(logSpy.log.args[3][0]).to.equal(colors.red('An error happened when publishing the component: the version of used ' +
-                    'OC CLI is invalid. Try to upgrade OC CLI running ' + colors.blue('[sudo] npm i -g oc@1.23.X')));
+                it('should show an error', () => {
+                  expect(logSpy.err.args[0][0]).to.equal(
+                    'An error happened when publishing the component: the version of used ' +
+                      'OC CLI is invalid. Try to upgrade OC CLI running ' +
+                      colors.blue('[sudo] npm i -g oc@1.23.X')
+                  );
                 });
               });
 
-              describe('when using an old node version', function(){
-
-                beforeEach(function(done){
+              describe('when using an old node version', () => {
+                beforeEach(done => {
                   sinon.stub(registry, 'putComponent').yields({
                     code: 'node_version_not_valid',
-                    error: 'Node CLI version is not valid: Registry 0.10.36, CLI 0.10.35',
+                    error:
+                      'Node CLI version is not valid: Registry 0.10.36, CLI 0.10.35',
                     details: {
                       code: 'not_matching',
                       cliNodeVersion: '0.10.35',
@@ -210,69 +246,76 @@ describe('cli : facade : publish', function(){
                   execute(done);
                 });
 
-                afterEach(function(){
+                afterEach(() => {
                   registry.putComponent.restore();
                 });
 
-                it('should show an error', function(){
-                  expect(logSpy.log.args[3][0]).to.equal(colors.red('An error happened when publishing the component: the version of used ' +
-                    'node is invalid. Try to upgrade node to version matching \'>=0.10.35\''));
+                it('should show an error', () => {
+                  expect(logSpy.err.args[0][0]).to.equal(
+                    'An error happened when publishing the component: the version of used ' +
+                      "node is invalid. Try to upgrade node to version matching '>=0.10.35'"
+                  );
                 });
               });
 
-              describe('when registry requires authentication', function(){
-                beforeEach(function(done){
+              describe('when registry requires authentication', () => {
+                beforeEach(done => {
                   sinon.stub(registry, 'putComponent').yields('Unauthorized');
                   execute(done);
                 });
 
-                afterEach(function(){
+                afterEach(() => {
                   registry.putComponent.restore();
                 });
 
-                it('should prompt for credentials', function(){
-                  expect(logSpy.log.args[3][0]).to.equal(colors.yellow('Registry requires credentials.'));
+                it('should prompt for credentials', () => {
+                  expect(logSpy.warn.args[4][0]).to.equal(
+                    'Registry requires credentials.'
+                  );
                 });
               });
 
-              describe('when credentials are prepopulated', function(){
-                beforeEach(function(done){
+              describe('when credentials are prepopulated', () => {
+                beforeEach(done => {
                   sinon.stub(registry, 'putComponent').yields('Unauthorized');
                   execute(done, {
-                      username: 'myuser',
-                      password: 'password'
+                    username: 'myuser',
+                    password: 'password'
                   });
                 });
 
-                afterEach(function(){
+                afterEach(() => {
                   registry.putComponent.restore();
                 });
 
-                it('should not prompt for credentials', function(){
-                  expect(logSpy.log.args[4][0]).to.equal(colors.green('Using specified credentials'));
+                it('should not prompt for credentials', () => {
+                  expect(logSpy.ok.args[0][0]).to.equal(
+                    'Using specified credentials'
+                  );
                 });
               });
 
-              describe('when it succeeds', function(){
-
-                var stub;
-                beforeEach(function(done){
+              describe('when it succeeds', () => {
+                let stub;
+                beforeEach(done => {
                   sinon.stub(registry, 'putComponent').yields(null, 'yay');
                   stub = sinon.stub(local, 'cleanup').yields(null, 'done');
                   execute(done);
                 });
 
-                afterEach(function(){
+                afterEach(() => {
                   registry.putComponent.restore();
                   local.cleanup.restore();
                 });
 
-                it('should show a message', function(){
-                  expect(logSpy.log.args[3][0]).to.include('Published -> ');
-                  expect(logSpy.log.args[3][0]).to.include('http://www.api.com/hello-world/1.0.0');
+                it('should show a message', () => {
+                  expect(logSpy.ok.args[0][0]).to.include('Published -> ');
+                  expect(logSpy.ok.args[0][0]).to.include(
+                    'http://www.api.com/hello-world/1.0.0'
+                  );
                 });
 
-                it('should remove the compressed package', function(){
+                it('should remove the compressed package', () => {
                   expect(stub.calledOnce).to.be.true;
                 });
               });

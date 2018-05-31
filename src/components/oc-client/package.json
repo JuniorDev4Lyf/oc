@@ -1,8 +1,8 @@
 {
   "name": "oc-client",
   "description": "The OpenComponents client-side javascript client",
-  "version": "0.35.3",
-  "repository": "https://github.com/opentable/oc/tree/master/components/oc-client",
+  "version": "0.44.7",
+  "repository": "https://github.com/opencomponents/oc/tree/master/components/oc-client",
   "author": "Matteo Figus <matteofigus@gmail.com>",
   "oc": {
     "container": false,
@@ -12,12 +12,15 @@
     "files": {
       "data": "server.js",
       "template": {
-        "src": "template.jade",
-        "type": "jade"
+        "src": "template.js",
+        "type": "oc-template-es6"
       },
       "static": [
         "src"
       ]
     }
+  },
+  "devDependencies": {
+    "oc-template-es6-compiler": "^1.0.1"
   }
 }

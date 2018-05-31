@@ -1,19 +1,28 @@
 'use strict';
 
-var format = require('stringformat');
-var multer = require('multer');
+const multer = require('multer');
 
-module.exports = function(req, res, next){
-
-  if(res.conf.local){
+module.exports = function(req, res, next) {
+  if (res.conf.local) {
     return next();
   }
 
-  return multer({ 
-    dest: res.conf.tempDir,
-    fieldSize: 10,
-    rename: function(fieldname, filename){
-      return format('{0}-{1}.tar', filename.replace('.tar', '').replace(/\W+/g, '-').toLowerCase(), Date.now());
-    }
-  })(req, res, next);
+  const normaliseFileName = x =>
+    x
+      .replace('.tar.gz', '')
+      .replace(/\W+/g, '-')
+      .toLowerCase();
+
+  const upload = multer({
+    limits: {
+      fieldSize: 10
+    },
+    storage: multer.diskStorage({
+      destination: res.conf.tempDir,
+      filename: (req, file, cb) =>
+        cb(null, `${normaliseFileName(file.originalname)}-${Date.now()}.tar.gz`)
+    })
+  });
+
+  return upload.any()(req, res, next);
 };

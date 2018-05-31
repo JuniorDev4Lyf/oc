@@ -1,30 +1,36 @@
 'use strict';
 
-var path = require('path');
-var targz = require('targz');
-var _ = require('underscore');
+const path = require('path');
+const targz = require('targz');
 
-var getPackageJsonFromTempDir = require('./get-package-json-from-temp-dir');
+const getPackageJsonFromTempDir = require('./get-package-json-from-temp-dir');
 
-module.exports = function(files, callback){
+module.exports = function(files, callback) {
+  const packageFile = files[0],
+    packagePath = path.resolve(packageFile.path),
+    packageUntarOutput = path.resolve(
+      packageFile.path,
+      '..',
+      packageFile.filename.replace('.tar.gz', '')
+    ),
+    packageOutput = path.resolve(packageUntarOutput, '_package');
 
-  var packageFile = files[_.keys(files)[0]],
-      packagePath = path.resolve(packageFile.path),
-      packageUntarOutput = path.resolve(packageFile.path, '..', packageFile.name.replace('.tar.gz', '')),
-      packageOutput = path.resolve(packageUntarOutput, '_package');
+  targz.decompress(
+    {
+      src: packagePath,
+      dest: packageUntarOutput
+    },
+    err => {
+      if (err) {
+        return callback(err);
+      }
 
-  targz.decompress({
-    src: packagePath,
-    dest: packageUntarOutput
-  }, function(err){
-
-    if(err){ return callback(err); }
-
-    getPackageJsonFromTempDir(packageOutput, function(err, packageJson){
-      callback(err, {
-        outputFolder: packageOutput,
-        packageJson: packageJson
+      getPackageJsonFromTempDir(packageOutput, (err, packageJson) => {
+        callback(err, {
+          outputFolder: packageOutput,
+          packageJson: packageJson
+        });
       });
-    });
-  });
+    }
+  );
 };

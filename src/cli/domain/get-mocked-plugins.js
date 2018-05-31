@@ -1,100 +1,111 @@
 'use strict';
 
-var colors = require('colors/safe');
-var fs = require('fs-extra');
-var path = require('path');
-var _ = require('underscore');
+const fs = require('fs-extra');
+const path = require('path');
+const _ = require('lodash');
 
-var settings = require('../../resources/settings');
-var strings = require('../../resources/');
+const settings = require('../../resources/settings');
+const strings = require('../../resources/');
 
-var registerStaticMocks = function(mocks, logger){
-  return _.map(mocks, function(mockedValue, pluginName){
-    logger.log(colors.green('├── ' + pluginName + ' () => ' + mockedValue));
+const isMockValid = plugin => {
+  const isFunction = _.isFunction(plugin);
+  const isValidObject =
+    _.isObject(plugin) &&
+    _.isFunction(plugin.register) &&
+    _.isFunction(plugin.execute);
+  return isFunction || isValidObject;
+};
+
+const defaultRegister = (options, dependencies, next) => next();
+
+const registerStaticMocks = (mocks, logger) =>
+  _.map(mocks, (mockedValue, pluginName) => {
+    logger.ok(`├── ${pluginName} () => ${mockedValue}`);
     return {
       name: pluginName,
       register: {
-        register: function(options, dependencies, next){
-          return next();
-        },
-        execute: function(){
-          return mockedValue;
-        }
+        register: defaultRegister,
+        execute: () => mockedValue
       }
     };
   });
-};
 
-var registerDynamicMocks = function(ocJsonLocation, mocks, logger){
-  return _.map(mocks, function(source, pluginName){
-
-    var p;
+const registerDynamicMocks = (ocJsonLocation, mocks, logger) =>
+  _.map(mocks, (source, pluginName) => {
+    let pluginMock;
     try {
-      p = require(path.resolve(ocJsonLocation, source));
-    } catch(er) {
-      logger.log(colors.red(er.toString()));
+      pluginMock = require(path.resolve(ocJsonLocation, source));
+    } catch (er) {
+      logger.err(er.toString());
       return;
     }
 
-    if(!_.isFunction(p)){
-      logger.log(colors.red(strings.errors.cli.MOCK_PLUGIN_IS_NOT_A_FUNCTION));
+    if (!isMockValid(pluginMock)) {
+      logger.err(`├── ${pluginName} () => Error (skipping)`);
+      logger.err(strings.errors.cli.MOCK_PLUGIN_IS_NOT_VALID);
       return;
     }
 
-    logger.log(colors.green('├── ' + pluginName + ' () => [Function]'));
+    const register = pluginMock.register || defaultRegister;
+    const execute = pluginMock.execute || pluginMock;
+
+    logger.ok(`├── ${pluginName} () => [Function]`);
+
     return {
       name: pluginName,
-      register: {
-        register: function(options, dependencies, next){
-          return next();
-        },
-        execute: p
-      }
+      register: { execute, register }
     };
-  }).filter(function(p){ return p; });
-};
+  }).filter(pluginMock => pluginMock);
 
-var findPath = function(pathToResolve, fileName) {
-
-  var rootDir = fs.realpathSync('.'),
-      fileToResolve = path.join(pathToResolve, fileName);
+const findPath = function(pathToResolve, fileName) {
+  const rootDir = fs.realpathSync('.');
+  const fileToResolve = path.join(pathToResolve, fileName);
 
   if (!fs.existsSync(fileToResolve)) {
     if (pathToResolve === rootDir) {
       return undefined;
     } else {
-      var getParent = function(x){ return x.split('/').slice(0, -1).join('/'); },
-          parentDir = pathToResolve ? getParent(pathToResolve) : rootDir;
+      const getParent = pathToResolve =>
+        pathToResolve
+          .split('/')
+          .slice(0, -1)
+          .join('/');
+
+      const parentDir = pathToResolve ? getParent(pathToResolve) : rootDir;
 
       return findPath(parentDir, fileName);
     }
   }
-  
+
   return fileToResolve;
 };
 
-module.exports = function(logger, componentsDir){
+module.exports = function(logger, componentsDir) {
   componentsDir = path.resolve(componentsDir || '.');
 
-  var plugins = [],
-      ocJsonFileName = settings.configFile.src.replace('./', ''),
-      ocJsonPath = findPath(componentsDir, ocJsonFileName);
+  let plugins = [];
+  const ocJsonFileName = settings.configFile.src.replace('./', '');
+  const ocJsonPath = findPath(componentsDir, ocJsonFileName);
 
-  if(!ocJsonPath){
+  if (!ocJsonPath) {
     return plugins;
   }
 
-  var content = fs.readJsonSync(ocJsonPath),
-      ocJsonLocation = ocJsonPath.slice(0, -ocJsonFileName.length);
+  const content = fs.readJsonSync(ocJsonPath);
+  const ocJsonLocation = ocJsonPath.slice(0, -ocJsonFileName.length);
 
-  if(!content.mocks || !content.mocks.plugins){
+  if (!content.mocks || !content.mocks.plugins) {
     return plugins;
   }
 
-  logger.log(colors.yellow(strings.messages.cli.REGISTERING_MOCKED_PLUGINS));
+  logger.warn(strings.messages.cli.REGISTERING_MOCKED_PLUGINS);
 
-  plugins = plugins.concat(registerStaticMocks(content.mocks.plugins.static, logger));
-  plugins = plugins.concat(registerDynamicMocks(ocJsonLocation, content.mocks.plugins.dynamic,logger));
+  plugins = plugins.concat(
+    registerStaticMocks(content.mocks.plugins.static, logger)
+  );
+  plugins = plugins.concat(
+    registerDynamicMocks(ocJsonLocation, content.mocks.plugins.dynamic, logger)
+  );
 
   return plugins;
 };

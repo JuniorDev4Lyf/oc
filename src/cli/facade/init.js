@@ -1,40 +1,54 @@
 'use strict';
 
-var colors = require('colors/safe');
-var format = require('stringformat');
+const format = require('stringformat');
+const path = require('path');
+const _ = require('lodash');
 
-var strings = require('../../resources/index');
-var wrapCliCallback = require('../wrap-cli-callback');
+const strings = require('../../resources/index');
+const wrapCliCallback = require('../wrap-cli-callback');
 
-module.exports = function(dependencies){
-  
-  var local = dependencies.local,
-      logger = dependencies.logger;
+module.exports = function(dependencies) {
+  const local = dependencies.local,
+    logger = dependencies.logger;
 
-  return function(opts, callback){
-
-    var componentName = opts.componentName,
-        templateType = opts.templateType,
-        errors = strings.errors.cli;
+  return function(opts, callback) {
+    const componentName = opts.componentName;
+    const templateType = _.isUndefined(opts.templateType)
+      ? 'oc-template-es6'
+      : opts.templateType;
+    const errors = strings.errors.cli;
+    const messages = strings.messages.cli;
+    const componentPath = path.join(process.cwd(), componentName);
 
     callback = wrapCliCallback(callback);
+    local.init(
+      {
+        componentName,
+        componentPath,
+        templateType,
+        logger
+      },
+      err => {
+        if (err) {
+          if (err === 'name not valid') {
+            err = errors.NAME_NOT_VALID;
+          }
 
-    local.init(componentName, templateType, function(err, res){
-      if(err){
-        if(err === 'name not valid'){
-          err = errors.NAME_NOT_VALID;
+          if (err === 'template type not valid') {
+            err = format(errors.TEMPLATE_TYPE_NOT_VALID, templateType);
+          }
+          logger.err(format(errors.INIT_FAIL, err));
+        } else {
+          logger.log(
+            messages.initSuccess(
+              componentName,
+              path.join(process.cwd(), componentName)
+            )
+          );
         }
 
-        if(err === 'template type not valid'){
-          err = errors.TEMPLATE_TYPE_NOT_VALID;
-        }
-
-        logger.log(colors.red(format(errors.INIT_FAIL, err)));
-      } else {
-        logger.log(colors.green(format(strings.messages.cli.COMPONENT_INITED, componentName)));
+        callback(err, componentName);
       }
-
-      callback(err, componentName);
-    });
+    );
   };
 };

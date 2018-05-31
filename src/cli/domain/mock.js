@@ -1,39 +1,43 @@
 'use strict';
 
-var fs = require('fs-extra');
-var path = require('path');
+const fs = require('fs-extra');
+const path = require('path');
 
-var settings = require('../../resources/settings');
+const settings = require('../../resources/settings');
 
-module.exports = function(){
-  return function(params, callback){
-
-    fs.readJson(settings.configFile.src, function(err, localConfig){
-
+module.exports = function() {
+  return function(params, callback) {
+    fs.readJson(settings.configFile.src, (err, localConfig) => {
       localConfig = localConfig || {};
 
-      var mockType = params.targetType + 's';
+      const mockType = params.targetType + 's';
 
-      if(!localConfig.mocks){
+      if (!localConfig.mocks) {
         localConfig.mocks = {};
       }
 
-      if(!localConfig.mocks[mockType]){
+      if (!localConfig.mocks[mockType]) {
         localConfig.mocks[mockType] = {};
       }
 
-      var pluginType = 'static';
-      if(fs.existsSync(path.resolve(params.targetValue.toString()))){
+      let pluginType = 'static';
+      if (fs.existsSync(path.resolve(params.targetValue.toString()))) {
         pluginType = 'dynamic';
       }
 
-      if(!localConfig.mocks[mockType][pluginType]){
+      if (!localConfig.mocks[mockType][pluginType]) {
         localConfig.mocks[mockType][pluginType] = {};
       }
 
-      localConfig.mocks[mockType][pluginType][params.targetName] = params.targetValue;
+      localConfig.mocks[mockType][pluginType][params.targetName] =
+        params.targetValue;
 
-      return fs.writeJson(settings.configFile.src, localConfig, {spaces: 2}, callback);
+      return fs.writeJson(
+        settings.configFile.src,
+        localConfig,
+        { spaces: 2 },
+        callback
+      );
     });
   };
 };

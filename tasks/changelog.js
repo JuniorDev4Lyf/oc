@@ -1,112 +1,46 @@
 'use strict';
 
-var async = require('async');
-var format = require('stringformat');
-var fs = require('fs');
-var path = require('path');
-var semverSort = require('semver-sort');
-var _ = require('underscore');
+const async = require('async');
+const format = require('stringformat');
+const fs = require('fs');
+const path = require('path');
+const get = require('./git');
 
-module.exports = function(grunt){
-
-  var get = {
-    prs: function(versions, callback){
-      grunt.util.spawn({
-        cmd: 'git',
-        args: ['log', versions]
-      }, function(err, res, code){
-        if(err){ return callback(err); }
-        var commits = res.stdout.split('commit '),
-            result = [];
-
-        _.forEach(commits, function(commit){
-          var commitMessages = commit.split('Merge pull request'),
-              isPr = commitMessages.length > 1,
-              isSquashedPr = !!commit.match(/(.*?)\(#(.*?)\)\n(.*?)/g),
-              commitMessage,
-              prNumber;
-
-          if(isPr){
-            var split = commitMessages[1].split('from'),
-                branchName = split[1].trim().split(' ')[0].trim();
-
-            prNumber = split[0].trim().replace('#', '');
-            commitMessage = split[1].replace(branchName, '').trim();
-
-            result.push(format('- [#{0}](https://github.com/opentable/oc/pull/{0}) {1}', prNumber, commitMessage));
-          } else if(isSquashedPr){
-            var lines = commit.split('\n'),
-                commitLine = lines[4],
-                prNumberStartIndex = commitLine.lastIndexOf(' ('),
-                prNumberEndIndex = commitLine.lastIndexOf(')');
-
-            prNumber = commitLine.substr(prNumberStartIndex + 3, prNumberEndIndex - prNumberStartIndex - 3);
-            commitMessage = commitLine.substr(0, prNumberStartIndex).trim();
-
-            result.push(format('- [#{0}](https://github.com/opentable/oc/pull/{0}) {1}', prNumber, commitMessage));
-          }
-        });
-
-        callback(null, result);
-      });
-    },
-    allPrs: function(tags, callback){
-      var logIntervals = [],
-          results = [];
-
-      for(var i = tags.length; i > 0; i--){
-        var logInterval = tags[i - 1];
-        if(i >= 2){
-          logInterval = tags[i - 2] + '..' + logInterval;
+module.exports = () =>
+  new Promise(resolve => {
+    const writeChangelog = (changelog, cb) => {
+      let result = '## Change Log';
+      changelog.forEach(pr => {
+        if (pr.changes.length > 0) {
+          result += format(
+            '\n\n### {0}\n{1}',
+            pr.tag.to,
+            pr.changes.join('\n')
+          );
         }
-        logIntervals.push(logInterval);
-      }
-
-      async.eachSeries(logIntervals, function(logInterval, next){
-        get.prs(logInterval, function(err, prs){
-          results.push(prs);
-          next();
-        });
-      }, function(){
-          callback(null, results);
       });
-    },
-    tags: function(callback){
-      grunt.util.spawn({ 
-        cmd: 'git', 
-        args: ['tag']
-      }, function(err, result, code){
-        if(err){ return callback(err); }
-        callback(null, result.stdout.split('\n'));
-      });
-    }
-  };
+      fs.writeFile(path.join(__dirname, '../CHANGELOG.md'), result, cb);
+    };
 
-  grunt.registerTask('changelog', 'generates the changelog', function(){
-
-    var done = this.async(),
-        result = '## Change Log';
-
-    get.tags(function(err, tags){
-      if(err){ return grunt.fatal(err); }
-
-      semverSort.asc(tags);
-
-      get.allPrs(tags, function(err, changes){
-        if(err){ return grunt.fatal(err); }
-
-        changes = changes.reverse();
-
-        for(var i = tags.length - 1; i >= 0; i--){
-          var changesForTag = changes[i].join('\n');
-          if(!_.isEmpty(changesForTag.trim())){
-            result += format('\n\n### {0}\n{1}', tags[i], changesForTag);
+    get.tags((err, tags) => {
+      const result = [];
+      async.eachSeries(
+        tags,
+        (tag, next) => {
+          get.prs(tag, (err, changes) => {
+            result.push({
+              tag,
+              changes
+            });
+            next(err);
+          });
+        },
+        err => {
+          if (err) {
+            return reject(err);
           }
+          writeChangelog(result, resolve);
         }
-
-        fs.writeFileSync(path.join(__dirname, '../CHANGELOG.md'), result);
-        done();
-      });
+      );
     });
   });
-};
