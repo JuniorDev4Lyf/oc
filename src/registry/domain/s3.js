@@ -229,7 +229,7 @@ module.exports = function(conf) {
           return await deleteDirectory(bucket, dir);
         }
       }
-      return true;
+      return false;
     } catch (error) {
       return false;
     }
