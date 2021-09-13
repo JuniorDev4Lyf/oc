@@ -308,6 +308,10 @@ module.exports = function(conf) {
       activeComponentsDetails.getActiveVersion(scope, componentName, callback);
     },
     deleteComponentVersion: async (componentName, componentVersion) => {
+      // Input validation
+      if ( !(typeof componentName    === "string" && componentName.lenght    > 0
+      &&     typeof componentVersion === "string" && componentVersion.length > 0 )) return false;
+
       let wasDeleteSuccessful = await cdn.deleteDirectory(
         getComponentVersionedPath(componentName, componentVersion)
       );
