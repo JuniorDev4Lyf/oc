@@ -310,7 +310,7 @@ module.exports = function(conf) {
     deleteComponentVersion: async (componentName, componentVersion) => {
       // Input validation
       if ( !(typeof componentName    === "string" && componentName.length    > 0
-      &&     typeof componentVersion === "string" && componentVersion.length > 0 )) return false;
+      &&     typeof componentVersion === "string" && componentVersion.length > 0 )) throw new Error("deleteComponentVersion error: invalid input parameters");
 
       let wasDeleteSuccessful = await cdn.deleteDirectory(
         getComponentVersionedPath(componentName, componentVersion)
