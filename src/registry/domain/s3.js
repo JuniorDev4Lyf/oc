@@ -231,6 +231,7 @@ module.exports = function(conf) {
       }
       return false;
     } catch (error) {
+      console.error('deleteDirectory - error:', error);
       return false;
     }
   };
