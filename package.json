@@ -85,7 +85,7 @@
     "oc-template-jade-compiler": "7.0.0",
     "opn": "5.1.0",
     "parse-author": "2.0.0",
-    "proxy-agent": "^3.1.0",
+    "proxy-agent": "5.0.0",
     "pug": "2.0.4",
     "read": "1.0.7",
     "require-package-name": "2.0.1",
