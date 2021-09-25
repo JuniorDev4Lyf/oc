@@ -208,11 +208,15 @@ module.exports = function(conf) {
         Bucket: bucket,
         Prefix: dir
       };
-      console.info(`deleteDirectory - listParams: ${JSON.stringify(listParams)}`);
+      console.info(
+        `deleteDirectory - listParams: ${JSON.stringify(listParams)}`
+      );
       const listedObjects = await getClient()
         .listObjectsV2(listParams)
         .promise();
-      console.info(`deleteDirectory - listedObjects: ${JSON.stringify(listedObjects)}`);
+      console.info(
+        `deleteDirectory - listedObjects: ${JSON.stringify(listedObjects)}`
+      );
       if (listedObjects.Contents.length !== 0) {
         const deleteParams = {
           Bucket: bucket,
@@ -224,10 +228,15 @@ module.exports = function(conf) {
         let deletedObjectsInfo = await getClient()
           .deleteObjects(deleteParams)
           .promise();
-        console.info(`deleteDirectory - deletedObjectsInfo: ${JSON.stringify(deletedObjectsInfo)}`);
+        console.info(
+          `deleteDirectory - deletedObjectsInfo: ${JSON.stringify(
+            deletedObjectsInfo
+          )}`
+        );
         if (listedObjects.Contents.IsTruncated) {
           return await deleteDirectory(bucket, dir);
         }
+        return true;
       }
       return false;
     } catch (error) {
