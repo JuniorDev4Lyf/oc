@@ -155,21 +155,25 @@ module.exports = (conf, cdn) => {
         if (jsonErr) {
           return callback(jsonErr);
         }
+
         if (
           activeDetails.activeVersions &&
-          activeDetails.activeVersions[scopeName]
+          scopeName in activeDetails.activeVersions
         ) {
           delete activeDetails.activeVersions[scopeName];
+
+          save(activeDetails, (err, savedDetails) => {
+            if (err) {
+              console.log('Error while saving active versions');
+              callback(err);
+            } else {
+              console.log('Active Versions saved successfully');
+              callback(null, savedDetails);
+            }
+          });
+        } else {
+          callback(new Error('failed to delete non-existent scope'));
         }
-        save(activeDetails, (err, savedDetails) => {
-          if (err) {
-            console.log('Error while saving active versions');
-            callback(err);
-          } else {
-            console.log('Active Versions saved successfully');
-            callback(null, savedDetails);
-          }
-        });
       });
     } catch (e) {
       callback(e);
