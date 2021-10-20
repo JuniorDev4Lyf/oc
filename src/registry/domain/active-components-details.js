@@ -77,23 +77,11 @@ module.exports = (conf, cdn) => {
           return callback(jsonErr);
         }
         const activeDetails = details;
-        if (!activeDetails.activeVersions[desiredScope]) {
-          activeDetails.activeVersions[desiredScope] = {};
-        }
-
-        // Process all deletion requests first
-        _.forEach(components, (component, i) => {
-          if ('delete' in component && component.delete === true) {
-            // Make sure the scope is valid
-            if (desiredScope in activeDetails.activeVersions) {
-              delete activeDetails.activeVersions[desiredScope][component.name];
-            }
-          }
-        });
 
         // Process all other activations
         _.forEach(components, (component, i) => {
-          if (!('delete' in component && component.delete === true)) {
+          if (component.version) {
+            // Activate component
             // Create new scope if needed
             if (!(desiredScope in activeDetails.activeVersions)) {
               activeDetails.activeVersions[desiredScope] = {};
@@ -101,10 +89,14 @@ module.exports = (conf, cdn) => {
 
             activeDetails.activeVersions[desiredScope][component.name] =
               component.version;
+          } else {
+            // Delete component
+            if (desiredScope in activeDetails.activeVersions) {
+              delete activeDetails.activeVersions[desiredScope][component.name];
+            }
           }
         });
 
-        // activeDetails.activeVersions[scope][componentName] = componentVersion;
         const sortedActiveVersions = Object.create(null);
         const nonDefaultEndPointScopes = /^(imc-.*|hx-.*|ucsm-.*|ucsd-.*)$/i;
         Object.keys(activeDetails.activeVersions)
