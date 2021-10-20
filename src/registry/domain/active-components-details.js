@@ -84,13 +84,21 @@ module.exports = (conf, cdn) => {
         // Process all deletion requests first
         _.forEach(components, (component, i) => {
           if ('delete' in component && component.delete === true) {
-            delete activeDetails.activeVersions[desiredScope][component.name];
+            // Make sure the scope is valid
+            if (desiredScope in activeDetails.activeVersions) {
+              delete activeDetails.activeVersions[desiredScope][component.name];
+            }
           }
         });
 
         // Process all other activations
         _.forEach(components, (component, i) => {
           if (!('delete' in component && component.delete === true)) {
+            // Create new scope if needed
+            if (!(desiredScope in activeDetails.activeVersions)) {
+              activeDetails.activeVersions[desiredScope] = {};
+            }
+
             activeDetails.activeVersions[desiredScope][component.name] =
               component.version;
           }
@@ -172,7 +180,8 @@ module.exports = (conf, cdn) => {
             }
           });
         } else {
-          callback(new Error('failed to delete non-existent scope'));
+          console.log('Failed to delete non-existent scope');
+          callback(new Error('Failed to delete non-existent scope'));
         }
       });
     } catch (e) {
