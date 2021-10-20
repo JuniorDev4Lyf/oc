@@ -80,19 +80,24 @@ module.exports = (conf, cdn) => {
 
         // Process all other activations
         _.forEach(components, (component, i) => {
-          if (component.version) {
+          // Make sure we were given a component name
+          if (component.name) {
             // Activate component
-            // Create new scope if needed
-            if (!(desiredScope in activeDetails.activeVersions)) {
-              activeDetails.activeVersions[desiredScope] = {};
-            }
+            if (component.version) {
+              // Create new scope if needed
+              if (!(desiredScope in activeDetails.activeVersions)) {
+                activeDetails.activeVersions[desiredScope] = {};
+              }
 
-            activeDetails.activeVersions[desiredScope][component.name] =
-              component.version;
-          } else {
-            // Delete component
-            if (desiredScope in activeDetails.activeVersions) {
-              delete activeDetails.activeVersions[desiredScope][component.name];
+              activeDetails.activeVersions[desiredScope][component.name] =
+                component.version;
+            } else {
+              // Delete component if it exists
+              if (desiredScope in activeDetails.activeVersions) {
+                delete activeDetails.activeVersions[desiredScope][
+                  component.name
+                ];
+              }
             }
           }
         });
