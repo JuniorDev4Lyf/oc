@@ -177,9 +177,12 @@ module.exports = function(conf) {
         Key: fileName,
         Body: fileContent,
         ACL: isPrivate ? 'authenticated-read' : 'public-read',
-        ServerSideEncryption: 'AES256',
         Expires: getNextYear()
       };
+
+    if (process.env.DEPLOYMENT_ENV !== 'onprem') {
+      obj.ServerSideEncryption = 'AES256';
+    }
 
     if (fileInfo.mimeType) {
       obj.ContentType = fileInfo.mimeType;
