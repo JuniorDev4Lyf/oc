@@ -29,7 +29,7 @@ module.exports = function(conf) {
   const activeComponentsDetails = ActiveComponentsDetails(conf, cdn);
   const devAccessDetails = DevAccessDetails(conf, cdn);
   const getComponentVersionedPath = (component, version) =>
-    `${conf.s3.componentsDir}/${component}/${version}`;
+    `${conf.s3.componentsDir}/${component}/${version}/`;
   // Cisco Starship Patch - END //
 
   const getFilePath = (component, version, filePath) =>
@@ -309,8 +309,17 @@ module.exports = function(conf) {
     },
     deleteComponentVersion: async (componentName, componentVersion) => {
       // Input validation
-      if ( !(typeof componentName    === "string" && componentName.length    > 0
-      &&     typeof componentVersion === "string" && componentVersion.length > 0 )) throw new Error("deleteComponentVersion error: invalid input parameters");
+      if (
+        !(
+          typeof componentName === 'string' &&
+          componentName.length > 0 &&
+          typeof componentVersion === 'string' &&
+          componentVersion.length > 0
+        )
+      )
+        throw new Error(
+          'deleteComponentVersion error: invalid input parameters'
+        );
 
       let wasDeleteSuccessful = await cdn.deleteDirectory(
         getComponentVersionedPath(componentName, componentVersion)
