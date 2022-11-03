@@ -191,6 +191,9 @@ module.exports = function(conf) {
     if (fileInfo.gzip) {
       obj.ContentEncoding = 'gzip';
     }
+    if (fileInfo.br) {
+      obj.ContentEncoding = 'br';
+    }
 
     getClient().putObject(obj, callback);
   };
